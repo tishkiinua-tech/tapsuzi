@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Tapsuzi</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #0d0d1a 0%, #1a0a2e 50%, #0f1a3a 100%);
+            min-height: 100vh; color: #fff; overflow-x: hidden; touch-action: manipulation;
+        }
+        .container { max-width: 480px; margin: 0 auto; padding: 16px; }
+
+        /* Header */
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 16px; background: rgba(255,255,255,0.06);
+            border-radius: 20px; margin-bottom: 16px; backdrop-filter: blur(15px);
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        .coin-display { display: flex; align-items: center; gap: 10px; }
+        .coin-icon { 
+            width: 40px; height: 40px; border-radius: 50%;
+            background: linear-gradient(135deg, #ffd700, #ff8c00);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px; box-shadow: 0 0 20px rgba(255,215,0,0.3);
+            animation: coinPulse 2s ease-in-out infinite;
+        }
+        @keyframes coinPulse {
+            0%, 100% { box-shadow: 0 0 20px rgba(255,215,0,0.3); }
+            50% { box-shadow: 0 0 35px rgba(255,215,0,0.6); }
+        }
+        .coin-amount { font-size: 22px; font-weight: 800; }
+        .usd-display { font-size: 11px; opacity: 0.5; margin-top: 2px; }
+
+        .level-badge { 
+            background: linear-gradient(135deg, #8b5cf6, #ec4899);
+            padding: 8px 16px; border-radius: 20px; font-size: 13px; font-weight: 700;
+            box-shadow: 0 4px 15px rgba(139,92,246,0.3);
+        }
+
+        /* Energy Bar */
+        .energy-section { margin-bottom: 20px; }
+        .energy-label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; opacity: 0.7; }
+        .energy-bar-bg { background: rgba(255,255,255,0.08); border-radius: 14px; height: 24px; overflow: hidden; position: relative; }
+        .energy-bar-fill { 
+            height: 100%; border-radius: 14px; transition: width 0.3s ease; position: relative;
+            background: linear-gradient(90deg, #06b6d4, #3b82f6, #8b5cf6);
+        }
+        .energy-bar-fill::after { 
+            content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent);
+            animation: shimmer 1.5s infinite;
+        }
+        @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+        .energy-low .energy-bar-fill { background: linear-gradient(90deg, #ef4444, #f97316); }
+
+        /* Tap Area */
+        .tap-area {
+            display: flex; justify-content: center; align-items: center;
+            padding: 30px 0; position: relative;
+        }
+        .tap-btn {
+            width: 240px; height: 240px; border-radius: 50%;
+            background: linear-gradient(145deg, rgba(255,255,255,0.1), rgba(255,255,255,0.02));
+            border: 3px solid rgba(255,255,255,0.12);
+            box-shadow: 0 15px 50px rgba(0,0,0,0.5), inset 0 2px 20px rgba(255,255,255,0.05), 0 0 60px rgba(139,92,246,0.1);
+            cursor: pointer; transition: all 0.08s ease; position: relative;
+            display: flex; align-items: center; justify-content: center;
+            user-select: none; -webkit-user-select: none;
+        }
+        .tap-btn:active { transform: scale(0.9); box-shadow: 0 8px 25px rgba(0,0,0,0.4); }
+        .tap-btn-inner {
+            width: 190px; height: 190px; border-radius: 50%;
+            background: linear-gradient(145deg, #8b5cf6, #ec4899);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 90px; box-shadow: inset 0 4px 30px rgba(0,0,0,0.3), 0 0 40px rgba(139,92,246,0.3);
+            transition: all 0.15s ease;
+        }
+        .tap-btn:active .tap-btn-inner { transform: scale(0.92); }
+
+        /* Ripple effect */
+        .ripple {
+            position: absolute; border-radius: 50%;
+            background: rgba(139,92,246,0.3);
+            transform: scale(0);
+            animation: rippleAnim 0.6s ease-out forwards;
+            pointer-events: none;
+        }
+        @keyframes rippleAnim {
+            to { transform: scale(4); opacity: 0; }
+        }
+
+        /* Floating text */
+        .float-text {
+            position: absolute; font-weight: 800; font-size: 26px;
+            color: #ffd700; pointer-events: none;
+            animation: floatUp 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.5), 0 0 20px rgba(255,215,0,0.3);
+        }
+        @keyframes floatUp {
+            0% { opacity: 1; transform: translateY(0) scale(0.8); }
+            30% { opacity: 1; transform: translateY(-30px) scale(1.3); }
+            100% { opacity: 0; transform: translateY(-100px) scale(0.5); }
+        }
+
+        /* Stats */
+        .stats-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px;
+        }
+        .stat-card {
+            background: rgba(255,255,255,0.05); border-radius: 20px; padding: 18px 14px;
+            text-align: center; border: 1px solid rgba(255,255,255,0.06);
+            backdrop-filter: blur(10px); position: relative; overflow: hidden;
+        }
+        .stat-card::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+            background: linear-gradient(90deg, #8b5cf6, #ec4899);
+        }
+        .stat-value { font-size: 26px; font-weight: 800; color: #ffd700; margin-bottom: 4px; }
+        .stat-label { font-size: 11px; opacity: 0.5; text-transform: uppercase; letter-spacing: 1px; }
+
+        /* Tabs */
+        .tabs { display: flex; gap: 8px; margin-bottom: 16px; overflow-x: auto; scrollbar-width: none; }
+        .tabs::-webkit-scrollbar { display: none; }
+        .tab {
+            flex: 1; min-width: 70px; padding: 12px 8px; border-radius: 16px; border: none;
+            background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.5);
+            font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.25s;
+            backdrop-filter: blur(10px); white-space: nowrap;
+        }
+        .tab.active { 
+            background: linear-gradient(135deg, #8b5cf6, #ec4899); color: #fff;
+            box-shadow: 0 4px 20px rgba(139,92,246,0.3);
+        }
+
+        /* Shop */
+        .shop-grid { display: flex; flex-direction: column; gap: 10px; }
+        .shop-item {
+            display: flex; align-items: center; gap: 14px;
+            background: rgba(255,255,255,0.05); border-radius: 20px;
+            padding: 16px; border: 1px solid rgba(255,255,255,0.06);
+            transition: all 0.2s; cursor: pointer; position: relative; overflow: hidden;
+        }
+        .shop-item:hover { background: rgba(255,255,255,0.08); transform: translateY(-1px); }
+        .shop-item.disabled { opacity: 0.35; pointer-events: none; }
+        .shop-item.owned { border-color: rgba(139,92,246,0.3); }
+        .shop-icon { 
+            width: 52px; height: 52px; border-radius: 16px;
+            background: linear-gradient(135deg, #8b5cf6, #6366f1);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 26px; flex-shrink: 0; box-shadow: 0 4px 15px rgba(139,92,246,0.2);
+        }
+        .shop-info { flex: 1; }
+        .shop-name { font-weight: 700; font-size: 15px; margin-bottom: 3px; }
+        .shop-desc { font-size: 12px; opacity: 0.45; }
+        .shop-level { font-size: 11px; color: #8b5cf6; margin-top: 2px; font-weight: 600; }
+        .shop-price {
+            background: linear-gradient(135deg, #ffd700, #ff8c00); color: #1a1a2e;
+            padding: 10px 18px; border-radius: 14px; font-weight: 800; font-size: 14px;
+            white-space: nowrap; box-shadow: 0 2px 12px rgba(255,215,0,0.2);
+        }
+        .shop-item.owned .shop-price { 
+            background: linear-gradient(135deg, #06b6d4, #3b82f6); color: #fff;
+            box-shadow: 0 2px 12px rgba(6,182,212,0.2);
+        }
+
+        /* Withdraw */
+        .withdraw-section { text-align: center; padding: 20px 0; }
+        .withdraw-balance {
+            background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(236,72,153,0.15));
+            border-radius: 24px; padding: 30px 20px; margin-bottom: 24px;
+            border: 1px solid rgba(139,92,246,0.2);
+        }
+        .withdraw-balance .label { font-size: 13px; opacity: 0.6; margin-bottom: 8px; }
+        .withdraw-balance .amount { font-size: 42px; font-weight: 800; color: #ffd700; }
+        .withdraw-balance .usd { font-size: 16px; opacity: 0.6; margin-top: 4px; }
+        .withdraw-balance .min { font-size: 12px; opacity: 0.4; margin-top: 8px; }
+
+        .withdraw-form {
+            background: rgba(255,255,255,0.04); border-radius: 20px;
+            padding: 24px; border: 1px solid rgba(255,255,255,0.06);
+            text-align: left;
+        }
+        .form-group { margin-bottom: 18px; }
+        .form-group label { display: block; font-size: 13px; opacity: 0.7; margin-bottom: 8px; font-weight: 600; }
+        .form-group input, .form-group select {
+            width: 100%; padding: 14px 16px; border-radius: 14px;
+            border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05);
+            color: #fff; font-size: 15px; outline: none; transition: all 0.2s;
+        }
+        .form-group input:focus, .form-group select:focus {
+            border-color: #8b5cf6; box-shadow: 0 0 0 3px rgba(139,92,246,0.15);
+        }
+        .form-group input::placeholder { color: rgba(255,255,255,0.3); }
+        .withdraw-btn {
+            width: 100%; padding: 16px; border-radius: 16px; border: none;
+            background: linear-gradient(135deg, #8b5cf6, #ec4899);
+            color: #fff; font-size: 16px; font-weight: 700; cursor: pointer;
+            box-shadow: 0 4px 20px rgba(139,92,246,0.3);
+            transition: all 0.2s; margin-top: 8px;
+        }
+        .withdraw-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 25px rgba(139,92,246,0.4); }
+        .withdraw-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+        .history-section { margin-top: 24px; }
+        .history-title { font-size: 16px; font-weight: 700; margin-bottom: 12px; }
+        .history-item {
+            display: flex; justify-content: space-between; align-items: center;
+            background: rgba(255,255,255,0.04); border-radius: 14px;
+            padding: 14px 16px; margin-bottom: 8px; border: 1px solid rgba(255,255,255,0.05);
+        }
+        .history-item .status { font-size: 12px; padding: 4px 10px; border-radius: 8px; font-weight: 600; }
+        .status-pending { background: rgba(245,158,11,0.15); color: #f59e0b; }
+        .status-done { background: rgba(34,197,94,0.15); color: #22c55e; }
+        .status-rejected { background: rgba(239,68,68,0.15); color: #ef4444; }
+
+        /* Achievements */
+        .achievements-list { display: flex; flex-direction: column; gap: 10px; }
+        .achievement {
+            display: flex; align-items: center; gap: 14px;
+            background: rgba(255,255,255,0.05); border-radius: 20px;
+            padding: 16px; border: 1px solid rgba(255,255,255,0.06);
+        }
+        .achievement.locked { opacity: 0.35; }
+        .ach-icon { 
+            width: 48px; height: 48px; border-radius: 14px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 24px; flex-shrink: 0;
+        }
+        .achievement.locked .ach-icon { background: rgba(255,255,255,0.06); }
+        .achievement.unlocked .ach-icon { 
+            background: linear-gradient(135deg, #ffd700, #ff8c00);
+            box-shadow: 0 4px 15px rgba(255,215,0,0.2);
+        }
+        .ach-info { flex: 1; }
+        .ach-name { font-weight: 700; font-size: 15px; }
+        .ach-reward { font-size: 12px; color: #ffd700; margin-top: 3px; font-weight: 600; }
+
+        /* Leaderboard */
+        .leaderboard-list { display: flex; flex-direction: column; gap: 8px; }
+        .lb-row {
+            display: flex; align-items: center; gap: 12px;
+            background: rgba(255,255,255,0.05); border-radius: 16px;
+            padding: 14px 16px; transition: all 0.2s;
+        }
+        .lb-row:hover { background: rgba(255,255,255,0.08); }
+        .lb-rank { width: 36px; text-align: center; font-weight: 800; font-size: 16px; }
+        .lb-rank.gold { color: #ffd700; text-shadow: 0 0 10px rgba(255,215,0,0.3); }
+        .lb-rank.silver { color: #c0c0c0; }
+        .lb-rank.bronze { color: #cd7f32; }
+        .lb-avatar { 
+            width: 44px; height: 44px; border-radius: 50%;
+            background: linear-gradient(135deg, #8b5cf6, #ec4899);
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 16px; box-shadow: 0 2px 10px rgba(139,92,246,0.2);
+        }
+        .lb-name { flex: 1; font-weight: 600; font-size: 14px; }
+        .lb-score { font-weight: 800; color: #ffd700; font-size: 15px; }
+
+        /* Toast */
+        .toast {
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(120px);
+            background: linear-gradient(135deg, #8b5cf6, #ec4899); color: #fff;
+            padding: 16px 32px; border-radius: 20px; font-weight: 700; font-size: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4); z-index: 1000;
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: none; white-space: nowrap;
+        }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+
+        /* Particle */
+        .particle {
+            position: absolute; pointer-events: none; border-radius: 50%;
+            animation: particleAnim 0.9s ease-out forwards;
+        }
+        @keyframes particleAnim {
+            0% { opacity: 1; transform: translate(0,0) scale(1); }
+            100% { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(0); }
+        }
+
+        .hidden { display: none !important; }
+
+        /* Level progress */
+        .level-progress { position: relative; width: 64px; height: 64px; }
+        .level-progress svg { transform: rotate(-90deg); }
+        .level-progress circle { fill: none; stroke-width: 4; }
+        .level-progress .bg { stroke: rgba(255,255,255,0.08); }
+        .level-progress .progress { stroke: url(#grad1); stroke-linecap: round; transition: stroke-dashoffset 0.5s ease; }
+        .level-text {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 20px; font-weight: 800;
+        }
+
+        /* Combo */
+        .combo-display {
+            position: absolute; top: -30px; left: 50%; transform: translateX(-50%);
+            font-size: 18px; font-weight: 800; color: #ec4899;
+            opacity: 0; transition: all 0.3s; text-shadow: 0 0 15px rgba(236,72,153,0.5);
+        }
+        .combo-display.active { opacity: 1; top: -50px; }
+    </style>
+</head>
+<body>
+    <svg width="0" height="0">
+        <defs>
+            <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" style="stop-color:#8b5cf6"/>
+                <stop offset="100%" style="stop-color:#ec4899"/>
+            </linearGradient>
+        </defs>
+    </svg>
+
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="coin-display">
+                <div class="coin-icon">🪙</div>
+                <div>
+                    <div class="coin-amount" id="coinCount">0</div>
+                    <div class="usd-display" id="usdDisplay">≈ $0.0000</div>
+                </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+                <div class="level-progress">
+                    <svg width="64" height="64" viewBox="0 0 64 64">
+                        <circle class="bg" cx="32" cy="32" r="28"/>
+                        <circle class="progress" cx="32" cy="32" r="28" stroke-dasharray="175.93" stroke-dashoffset="175.93" id="levelCircle"/>
+                    </svg>
+                    <div class="level-text" id="levelNum">1</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Energy -->
+        <div class="energy-section" id="energySection">
+            <div class="energy-label">
+                <span>⚡ Энергия</span>
+                <span id="energyText">1000 / 1000</span>
+            </div>
+            <div class="energy-bar-bg">
+                <div class="energy-bar-fill" id="energyBar" style="width:100%"></div>
+            </div>
+        </div>
+
+        <!-- Tap Area -->
+        <div class="tap-area" id="tapArea">
+            <div class="combo-display" id="comboDisplay">🔥 COMBO x2!</div>
+            <div class="tap-btn" id="tapBtn">
+                <div class="tap-btn-inner" id="tapInner">👆</div>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="tapPower">1</div>
+                <div class="stat-label">Сила тапа</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="totalTaps">0</div>
+                <div class="stat-label">Всего тапов</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="autoIncome">0</div>
+                <div class="stat-label">Автодоход/сек</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="usdValue">$0.00</div>
+                <div class="stat-label">~ в USDT</div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" data-tab="shop">🛒 Магазин</button>
+            <button class="tab" data-tab="achievements">🏆 Достижения</button>
+            <button class="tab" data-tab="leaderboard">📊 Топ</button>
+            <button class="tab" data-tab="withdraw">💸 Вывод</button>
+        </div>
+
+        <!-- Shop -->
+        <div class="tab-content" id="shop">
+            <div class="shop-grid" id="shopGrid"></div>
+        </div>
+
+        <!-- Achievements -->
+        <div class="tab-content hidden" id="achievements">
+            <div class="achievements-list" id="achList"></div>
+        </div>
+
+        <!-- Leaderboard -->
+        <div class="tab-content hidden" id="leaderboard">
+            <div class="leaderboard-list" id="lbList"></div>
+        </div>
+
+        <!-- Withdraw -->
+        <div class="tab-content hidden" id="withdraw">
+            <div class="withdraw-section">
+                <div class="withdraw-balance">
+                    <div class="label">Доступно для вывода</div>
+                    <div class="amount" id="withdrawCoins">0 🪙</div>
+                    <div class="usd" id="withdrawUsd">≈ $0.0000 USDT</div>
+                    <div class="min">Минимум: 5 000 000 монет ($5 USDT)</div>
+                </div>
+
+                <div class="withdraw-form">
+                    <div class="form-group">
+                        <label>Сумма вывода (монеты)</label>
+                        <input type="number" id="withdrawAmount" placeholder="Введите сумму..." min="5000000">
+                    </div>
+                    <div class="form-group">
+                        <label>Сеть</label>
+                        <select id="withdrawNetwork">
+                            <option value="trc20">TRC20 (Tron)</option>
+                            <option value="bep20">BEP20 (BSC)</option>
+                            <option value="erc20">ERC20 (Ethereum)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Адрес кошелька USDT</label>
+                        <input type="text" id="withdrawAddress" placeholder="Введите адрес...">
+                    </div>
+                    <button class="withdraw-btn" id="withdrawBtn">💸 Запросить вывод</button>
+                </div>
+
+                <div class="history-section">
+                    <div class="history-title">📋 История выводов</div>
+                    <div id="withdrawHistory"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+<script>
+// ==================== GAME STATE ====================
+const RATE = 1000000; // 1 000 000 coins = $1 USDT (большой зазор)
+const MIN_WITHDRAW = 5000000; // 5M = $5 USDT
+
+let state = {
+    coins: 0,
+    energy: 1000,
+    maxEnergy: 1000,
+    tapPower: 1,
+    totalTaps: 0,
+    autoIncome: 0,
+    level: 1,
+    xp: 0,
+    xpToNext: 100,
+    upgrades: {},
+    achievements: {},
+    withdrawHistory: [],
+    lastEnergyRegen: Date.now(),
+    comboCount: 0,
+    comboTimer: null,
+    comboMultiplier: 1
+};
+
+// Load
+const saved = localStorage.getItem('tapsuzi_save');
+if (saved) {
+    try {
+        const parsed = JSON.parse(saved);
+        state = { ...state, ...parsed, lastEnergyRegen: Date.now(), comboCount: 0, comboMultiplier: 1 };
+        const offlineMs = Date.now() - (parsed.lastEnergyRegen || Date.now());
+        const regenAmount = Math.floor(offlineMs / 1000) * 2;
+        state.energy = Math.min(state.maxEnergy, state.energy + regenAmount);
+        // Offline auto income
+        const offlineSecs = Math.floor(offlineMs / 1000);
+        const offlineIncome = state.autoIncome * Math.min(offlineSecs, 3600); // max 1 hour offline
+        state.coins += offlineIncome;
+    } catch(e) {}
+}
+
+// ==================== UPGRADES ====================
+const upgrades = [
+    { id: 'tap1', name: 'Усиленный палец', desc: '+1 к силе тапа', icon: '👆', basePrice: 100, effect: s => s.tapPower += 1, type: 'tap' },
+    { id: 'tap2', name: 'Золотой палец', desc: '+3 к силе тапа', icon: '✨', basePrice: 600, effect: s => s.tapPower += 3, type: 'tap' },
+    { id: 'tap3', name: 'Алмазный палец', desc: '+10 к силе тапа', icon: '💎', basePrice: 4000, effect: s => s.tapPower += 10, type: 'tap' },
+    { id: 'tap4', name: 'Плазменный палец', desc: '+50 к силе тапа', icon: '🔥', basePrice: 25000, effect: s => s.tapPower += 50, type: 'tap' },
+    { id: 'tap5', name: 'Квантовый палец', desc: '+200 к силе тапа', icon: '⚡', basePrice: 150000, effect: s => s.tapPower += 200, type: 'tap' },
+    { id: 'auto1', name: 'Кликер-бот', desc: '+1 монета/сек', icon: '🤖', basePrice: 300, effect: s => s.autoIncome += 1, type: 'auto' },
+    { id: 'auto2', name: 'Майнинг-ферма', desc: '+5 монет/сек', icon: '⛏️', basePrice: 1600, effect: s => s.autoIncome += 5, type: 'auto' },
+    { id: 'auto3', name: 'Квантовый майнер', desc: '+25 монет/сек', icon: '⚛️', basePrice: 10000, effect: s => s.autoIncome += 25, type: 'auto' },
+    { id: 'auto4', name: 'Блокчейн-нода', desc: '+100 монет/сек', icon: '🔗', basePrice: 60000, effect: s => s.autoIncome += 100, type: 'auto' },
+    { id: 'auto5', name: 'ИИ-ферма', desc: '+500 монет/сек', icon: '🧠', basePrice: 350000, effect: s => s.autoIncome += 500, type: 'auto' },
+    { id: 'energy1', name: 'Батарейка', desc: '+200 макс. энергии', icon: '🔋', basePrice: 800, effect: s => { s.maxEnergy += 200; s.energy += 200; }, type: 'energy' },
+    { id: 'energy2', name: 'Супер-заряд', desc: '+500 макс. энергии', icon: '⚡', basePrice: 5000, effect: s => { s.maxEnergy += 500; s.energy += 500; }, type: 'energy' },
+    { id: 'energy3', name: 'Ядерный реактор', desc: '+2000 макс. энергии', icon: '☢️', basePrice: 30000, effect: s => { s.maxEnergy += 2000; s.energy += 2000; }, type: 'energy' },
+    { id: 'multi1', name: 'Множитель x2', desc: 'Удвоение всего дохода', icon: '🔥', basePrice: 10000, effect: s => { s.tapPower *= 2; s.autoIncome *= 2; }, type: 'multi', max: 1 },
+    { id: 'multi2', name: 'Множитель x3', desc: 'Утроение всего дохода', icon: '💥', basePrice: 100000, effect: s => { s.tapPower *= 3; s.autoIncome *= 3; }, type: 'multi', max: 1 },
+];
+
+// ==================== ACHIEVEMENTS ====================
+const achievements = [
+    { id: 'first', name: 'Первый шаг', desc: 'Сделай 1 тап', check: s => s.totalTaps >= 1, reward: 50, icon: '👶' },
+    { id: 'hundred', name: 'Сотня', desc: 'Сделай 100 тапов', check: s => s.totalTaps >= 100, reward: 500, icon: '💯' },
+    { id: 'thousand', name: 'Тысячник', desc: 'Сделай 1000 тапов', check: s => s.totalTaps >= 1000, reward: 3000, icon: '🔥' },
+    { id: 'tenk', name: 'Десятитысячник', desc: 'Сделай 10,000 тапов', check: s => s.totalTaps >= 10000, reward: 20000, icon: '💪' },
+    { id: 'rich', name: 'Богач', desc: 'Накопи 100,000 монет', check: s => s.coins >= 100000, reward: 10000, icon: '💰' },
+    { id: 'rich2', name: 'Миллионер', desc: 'Накопи 1,000,000 монет', check: s => s.coins >= 1000000, reward: 100000, icon: '🏦' },
+    { id: 'rich3', name: 'Мультимиллионер', desc: 'Накопи 10,000,000 монет', check: s => s.coins >= 10000000, reward: 500000, icon: '🏰' },
+    { id: 'auto', name: 'Пассивный доход', desc: 'Купи автодоход', check: s => s.autoIncome > 0, reward: 500, icon: '🤖' },
+    { id: 'level5', name: 'Опытный', desc: 'Достигни 5 уровня', check: s => s.level >= 5, reward: 2000, icon: '⭐' },
+    { id: 'level10', name: 'Мастер', desc: 'Достигни 10 уровня', check: s => s.level >= 10, reward: 10000, icon: '👑' },
+    { id: 'level20', name: 'Легенда', desc: 'Достигни 20 уровня', check: s => s.level >= 20, reward: 100000, icon: '🦄' },
+    { id: 'combo', name: 'Комбо-мастер', desc: 'Сделай 10 тапов подряд', check: s => s.comboCount >= 10, reward: 5000, icon: '⚡' },
+];
+
+// ==================== LEADERBOARD ====================
+const fakePlayers = [
+    { name: 'CryptoKing', score: 85400000 },
+    { name: 'TapMaster', score: 62000000 },
+    { name: 'SuziWhale', score: 41000000 },
+    { name: 'DiamondHand', score: 28000000 },
+    { name: 'MoonBoy', score: 15000000 },
+    { name: 'BlockChain', score: 9000000 },
+    { name: 'DeFiKing', score: 4500000 },
+];
+
+// ==================== DOM ====================
+const els = {
+    coinCount: document.getElementById('coinCount'),
+    usdDisplay: document.getElementById('usdDisplay'),
+    energyText: document.getElementById('energyText'),
+    energyBar: document.getElementById('energyBar'),
+    energySection: document.getElementById('energySection'),
+    tapBtn: document.getElementById('tapBtn'),
+    tapInner: document.getElementById('tapInner'),
+    tapArea: document.getElementById('tapArea'),
+    comboDisplay: document.getElementById('comboDisplay'),
+    tapPower: document.getElementById('tapPower'),
+    totalTaps: document.getElementById('totalTaps'),
+    autoIncome: document.getElementById('autoIncome'),
+    usdValue: document.getElementById('usdValue'),
+    levelNum: document.getElementById('levelNum'),
+    levelCircle: document.getElementById('levelCircle'),
+    shopGrid: document.getElementById('shopGrid'),
+    achList: document.getElementById('achList'),
+    lbList: document.getElementById('lbList'),
+    toast: document.getElementById('toast'),
+    withdrawCoins: document.getElementById('withdrawCoins'),
+    withdrawUsd: document.getElementById('withdrawUsd'),
+    withdrawAmount: document.getElementById('withdrawAmount'),
+    withdrawAddress: document.getElementById('withdrawAddress'),
+    withdrawNetwork: document.getElementById('withdrawNetwork'),
+    withdrawBtn: document.getElementById('withdrawBtn'),
+    withdrawHistory: document.getElementById('withdrawHistory'),
+};
+
+// ==================== UTILS ====================
+function formatNum(n) {
+    if (n >= 1e12) return (n/1e12).toFixed(1) + 'T';
+    if (n >= 1e9) return (n/1e9).toFixed(1) + 'B';
+    if (n >= 1e6) return (n/1e6).toFixed(1) + 'M';
+    if (n >= 1e3) return (n/1e3).toFixed(1) + 'K';
+    return n.toLocaleString('ru-RU');
+}
+
+function showToast(msg) {
+    els.toast.textContent = msg;
+    els.toast.classList.add('show');
+    setTimeout(() => els.toast.classList.remove('show'), 2200);
+}
+
+function save() {
+    localStorage.setItem('tapsuzi_save', JSON.stringify(state));
+}
+
+function addXP(amount) {
+    state.xp += amount;
+    if (state.xp >= state.xpToNext) {
+        state.level++;
+        state.xp -= state.xpToNext;
+        state.xpToNext = Math.floor(state.xpToNext * 1.5);
+        showToast(`🎉 Уровень ${state.level}!`);
+        createConfetti();
+    }
+}
+
+function createConfetti() {
+    for (let i = 0; i < 40; i++) {
+        const p = document.createElement('div');
+        p.className = 'particle';
+        const size = 4 + Math.random() * 8;
+        p.style.cssText = `
+            left: 50%; top: 35%;
+            width: ${size}px; height: ${size}px;
+            background: hsl(${Math.random()*360}, 85%, 60%);
+            --tx: ${(Math.random()-0.5)*350}px;
+            --ty: ${(Math.random()-0.5)*350}px;
+        `;
+        document.body.appendChild(p);
+        setTimeout(() => p.remove(), 900);
+    }
+}
+
+// ==================== COMBO ====================
+function updateCombo() {
+    state.comboCount++;
+    if (state.comboCount >= 5) {
+        state.comboMultiplier = Math.min(5, 1 + Math.floor(state.comboCount / 5));
+        els.comboDisplay.textContent = `🔥 COMBO x${state.comboMultiplier}!`;
+        els.comboDisplay.classList.add('active');
+    }
+    clearTimeout(state.comboTimer);
+    state.comboTimer = setTimeout(() => {
+        state.comboCount = 0;
+        state.comboMultiplier = 1;
+        els.comboDisplay.classList.remove('active');
+    }, 2000);
+}
+
+// ==================== TAP ====================
+els.tapBtn.addEventListener('click', (e) => {
+    if (state.energy <= 0) {
+        showToast('⚡ Нет энергии! Жди восстановления...');
+        els.tapBtn.style.animation = 'shake 0.4s';
+        setTimeout(() => els.tapBtn.style.animation = '', 400);
+        return;
+    }
+
+    updateCombo();
+    const gain = state.tapPower * state.comboMultiplier;
+    state.coins += gain;
+    state.totalTaps++;
+    state.energy = Math.max(0, state.energy - 1);
+    addXP(state.comboMultiplier);
+
+    // Ripple
+    const ripple = document.createElement('div');
+    ripple.className = 'ripple';
+    ripple.style.cssText = `width:50px;height:50px;left:${e.offsetX-25}px;top:${e.offsetY-25}px;`;
+    els.tapBtn.appendChild(ripple);
+    setTimeout(() => ripple.remove(), 600);
+
+    // Float text
+    const float = document.createElement('div');
+    float.className = 'float-text';
+    float.textContent = '+' + formatNum(gain) + (state.comboMultiplier > 1 ? ` x${state.comboMultiplier}` : '');
+    const rect = els.tapBtn.getBoundingClientRect();
+    float.style.left = (e.clientX - rect.left - 30 + (Math.random()-0.5)*50) + 'px';
+    float.style.top = (e.clientY - rect.top - 50) + 'px';
+    els.tapBtn.appendChild(float);
+    setTimeout(() => float.remove(), 1200);
+
+    // Particles
+    for (let i = 0; i < 6; i++) {
+        const p = document.createElement('div');
+        p.className = 'particle';
+        p.style.cssText = `
+            left: ${e.clientX}px; top: ${e.clientY}px;
+            width: ${4+Math.random()*6}px; height: ${4+Math.random()*6}px;
+            background: hsl(${280+Math.random()*60}, 80%, 65%);
+            --tx: ${(Math.random()-0.5)*120}px;
+            --ty: ${(Math.random()-0.5)*120}px;
+        `;
+        document.body.appendChild(p);
+        setTimeout(() => p.remove(), 900);
+    }
+
+    if (navigator.vibrate) navigator.vibrate(12);
+
+    checkAchievements();
+    updateUI();
+    save();
+});
+
+els.tapBtn.addEventListener('touchstart', (e) => { e.preventDefault(); els.tapBtn.click(); });
+
+// ==================== SHOP ====================
+function getUpgradePrice(u) {
+    const lvl = state.upgrades[u.id] || 0;
+    return Math.floor(u.basePrice * Math.pow(1.6, lvl));
+}
+
+function renderShop() {
+    els.shopGrid.innerHTML = '';
+    upgrades.forEach(u => {
+        const lvl = state.upgrades[u.id] || 0;
+        const price = getUpgradePrice(u);
+        const maxed = u.max && lvl >= u.max;
+        const owned = lvl > 0;
+
+        const item = document.createElement('div');
+        item.className = 'shop-item' + (maxed ? ' disabled' : '') + (owned ? ' owned' : '');
+        item.innerHTML = `
+            <div class="shop-icon">${u.icon}</div>
+            <div class="shop-info">
+                <div class="shop-name">${u.name}</div>
+                <div class="shop-desc">${u.desc}</div>
+                ${lvl > 0 ? `<div class="shop-level">Уровень: ${lvl}${u.max ? '/' + u.max : ''}</div>` : ''}
+            </div>
+            <div class="shop-price">${maxed ? 'MAX' : formatNum(price)} 🪙</div>
+        `;
+
+        if (!maxed) {
+            item.addEventListener('click', () => {
+                if (state.coins >= price) {
+                    state.coins -= price;
+                    state.upgrades[u.id] = (state.upgrades[u.id] || 0) + 1;
+                    u.effect(state);
+                    showToast(`✅ Куплено: ${u.name}`);
+                    save();
+                    renderShop();
+                    updateUI();
+                } else {
+                    showToast('❌ Недостаточно монет!');
+                    item.style.animation = 'shake 0.3s';
+                    setTimeout(() => item.style.animation = '', 300);
+                }
+            });
+        }
+
+        els.shopGrid.appendChild(item);
+    });
+}
+
+// ==================== ACHIEVEMENTS ====================
+function checkAchievements() {
+    achievements.forEach(a => {
+        if (!state.achievements[a.id] && a.check(state)) {
+            state.achievements[a.id] = true;
+            state.coins += a.reward;
+            showToast(`🏆 Достижение: ${a.name}! +${formatNum(a.reward)} 🪙`);
+            createConfetti();
+            save();
+            renderAchievements();
+            updateUI();
+        }
+    });
+}
+
+function renderAchievements() {
+    els.achList.innerHTML = '';
+    achievements.forEach(a => {
+        const unlocked = !!state.achievements[a.id];
+        const div = document.createElement('div');
+        div.className = 'achievement ' + (unlocked ? 'unlocked' : 'locked');
+        div.innerHTML = `
+            <div class="ach-icon">${a.icon}</div>
+            <div class="ach-info">
+                <div class="ach-name">${a.name}</div>
+                <div style="font-size:12px;opacity:0.5;margin-top:2px;">${a.desc}</div>
+                <div class="ach-reward">${unlocked ? '✅ Получено' : '💰 Награда: ' + formatNum(a.reward)}</div>
+            </div>
+        `;
+        els.achList.appendChild(div);
+    });
+}
+
+// ==================== LEADERBOARD ====================
+function renderLeaderboard() {
+    const all = [...fakePlayers, { name: 'Вы', score: state.coins }];
+    all.sort((a, b) => b.score - a.score);
+
+    els.lbList.innerHTML = '';
+    all.slice(0, 8).forEach((p, i) => {
+        const div = document.createElement('div');
+        div.className = 'lb-row';
+        const rankClass = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
+        div.innerHTML = `
+            <div class="lb-rank ${rankClass}">#${i+1}</div>
+            <div class="lb-avatar">${p.name[0]}</div>
+            <div class="lb-name">${p.name}</div>
+            <div class="lb-score">${formatNum(p.score)}</div>
+        `;
+        els.lbList.appendChild(div);
+    });
+}
+
+// ==================== WITHDRAW ====================
+function renderWithdraw() {
+    els.withdrawCoins.textContent = formatNum(state.coins) + ' 🪙';
+    els.withdrawUsd.textContent = '≈ $' + (state.coins / RATE).toFixed(4) + ' USDT';
+
+    const history = state.withdrawHistory || [];
+    els.withdrawHistory.innerHTML = '';
+    if (history.length === 0) {
+        els.withdrawHistory.innerHTML = '<div style="text-align:center;opacity:0.4;padding:20px;">История выводов пуста</div>';
+    } else {
+        history.slice().reverse().forEach(h => {
+            const div = document.createElement('div');
+            div.className = 'history-item';
+            const statusClass = h.status === 'pending' ? 'status-pending' : h.status === 'done' ? 'status-done' : 'status-rejected';
+            const statusText = h.status === 'pending' ? '⏳ В обработке' : h.status === 'done' ? '✅ Выполнено' : '❌ Отклонено';
+            div.innerHTML = `
+                <div>
+                    <div style="font-weight:600;font-size:14px;">${formatNum(h.amount)} 🪙</div>
+                    <div style="font-size:11px;opacity:0.5;">${h.network.toUpperCase()} • ${h.date}</div>
+                </div>
+                <div class="status ${statusClass}">${statusText}</div>
+            `;
+            els.withdrawHistory.appendChild(div);
+        });
+    }
+}
+
+els.withdrawBtn.addEventListener('click', () => {
+    const amount = parseInt(els.withdrawAmount.value);
+    const address = els.withdrawAddress.value.trim();
+    const network = els.withdrawNetwork.value;
+
+    if (!amount || amount < MIN_WITHDRAW) {
+        showToast(`❌ Минимум ${formatNum(MIN_WITHDRAW)} монет ($5 USDT)`);
+        return;
+    }
+    if (amount > state.coins) {
+        showToast('❌ Недостаточно монет!');
+        return;
+    }
+    if (!address || address.length < 10) {
+        showToast('❌ Введите корректный адрес кошелька');
+        return;
+    }
+
+    state.coins -= amount;
+    state.withdrawHistory.push({
+        amount, network, address: address.slice(0,6)+'...'+address.slice(-4),
+        date: new Date().toLocaleDateString('ru-RU'),
+        status: 'pending'
+    });
+
+    showToast('✅ Заявка на вывод создана!');
+    els.withdrawAmount.value = '';
+    els.withdrawAddress.value = '';
+    save();
+    renderWithdraw();
+    updateUI();
+});
+
+// ==================== TABS ====================
+document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+        document.getElementById(tab.dataset.tab).classList.remove('hidden');
+        if (tab.dataset.tab === 'leaderboard') renderLeaderboard();
+        if (tab.dataset.tab === 'withdraw') renderWithdraw();
+    });
+});
+
+// ==================== UPDATE UI ====================
+function updateUI() {
+    els.coinCount.textContent = formatNum(state.coins);
+    els.usdDisplay.textContent = '≈ $' + (state.coins / RATE).toFixed(4);
+    els.energyText.textContent = `${Math.floor(state.energy)} / ${state.maxEnergy}`;
+    els.energyBar.style.width = (state.energy / state.maxEnergy * 100) + '%';
+    els.energySection.classList.toggle('energy-low', state.energy < state.maxEnergy * 0.2);
+    els.tapPower.textContent = formatNum(state.tapPower);
+    els.totalTaps.textContent = formatNum(state.totalTaps);
+    els.autoIncome.textContent = formatNum(state.autoIncome);
+    els.usdValue.textContent = '$' + (state.coins / RATE).toFixed(2);
+    els.levelNum.textContent = state.level;
+
+    const circumference = 2 * Math.PI * 28;
+    const progress = state.xp / state.xpToNext;
+    els.levelCircle.style.strokeDashoffset = circumference * (1 - progress);
+
+    if (state.energy <= 0) {
+        els.tapInner.style.background = 'linear-gradient(145deg, #444, #333)';
+        els.tapBtn.style.borderColor = 'rgba(239,68,68,0.4)';
+        els.tapBtn.style.boxShadow = '0 15px 50px rgba(0,0,0,0.5)';
+    } else {
+        els.tapInner.style.background = 'linear-gradient(145deg, #8b5cf6, #ec4899)';
+        els.tapBtn.style.borderColor = 'rgba(255,255,255,0.12)';
+        els.tapBtn.style.boxShadow = '0 15px 50px rgba(0,0,0,0.5), 0 0 60px rgba(139,92,246,0.1)';
+    }
+}
+
+// ==================== GAME LOOP ====================
+setInterval(() => {
+    if (state.autoIncome > 0) {
+        state.coins += state.autoIncome;
+        addXP(0.05);
+    }
+    state.energy = Math.min(state.maxEnergy, state.energy + 2);
+    state.lastEnergyRegen = Date.now();
+    checkAchievements();
+    updateUI();
+    save();
+}, 1000);
+
+// ==================== INIT ====================
+renderShop();
+renderAchievements();
+renderLeaderboard();
+renderWithdraw();
+updateUI();
+
+// Shake animation
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        20% { transform: translateX(-10px); }
+        40% { transform: translateX(10px); }
+        60% { transform: translateX(-6px); }
+        80% { transform: translateX(6px); }
+    }
+`;
+document.head.appendChild(style);
+</script>
+</body>
+</html>
